@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>web-component</title>
+        <script type="module">
+            import * as WebComponent from "/web-component/web-component.js";
+            await WebComponent.default();
+            window.__WebComponent = WebComponent; // TODO: This should be initialized inside the library somehow.
+            WebComponent.LoadAll(WebComponent);
+        </script>
+    </head>
+    <body>
+        <web-component path="/clocks"></web-component>
+        <web-component path="/minimal-component"></web-component>
+
+        <center>
+            This is a test.<br/>
+            <minimal-component></minimal-component><br/>
+            <analog-clock></analog-clock><br/>
+            <digital-clock></digital-clock><br/>
+        </center>
+    </body>
+</html>

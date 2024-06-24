@@ -16,6 +16,7 @@ export default class WebComponent extends HTMLElement {
     async onload() {}
 
     async connectedCallback() {
+        this.data = await this.getData();
         await this.#createTemplate();
         await this.#createBindings();
         this.onload(this.shadowRoot);
@@ -54,61 +55,30 @@ export default class WebComponent extends HTMLElement {
                 let name = attribute.name.substring(WebComponent.ATTRIBUTE_PREFIX.length);
                 let value = attribute.value;
                 let parent = this.parentComponent();
-                console.log(parent.data);
                 this.data[name] = this.getValue(parent.data, value);
             }
         }
     }
 
-    async #createTemplateBindings() {
-        // TODO
+    #createTextBindings(node) {
+        if (node.nodeName == "#text") {
+            let regex = /{{\s*(\w*\.?)*\s*}}/g;
+            let matches = node.nodeValue.match(regex);
+            for (let index in matches) {
+                let match = matches[index];
+                let data = match.replace(/{{/g, "").replace(/}}/g, "").replace(/\s*/g, "");
+                let value = this.getValue(this.data, data);
+                node.nodeValue = node.nodeValue.replace(match, value);
+            }
+        }
+        let childNodes = node.childNodes;
+        for (let i = 0; i < childNodes.length; i++)
+            this.#createTextBindings(childNodes[i]);
     }
 
     async #createBindings() {
-        this.data = await this.getData();
-        let el = this.shadowRoot.getElementById("vue");
         await this.#createAttributesBindings();
-
-        // We need to remove style elements from the template because Vue doesn't
-        // compile it.
-        let styles = [];
-        let styles_in_el = el.getElementsByTagName("style");
-        for (var i = 0; i < styles_in_el.length; i++) {
-            styles.push(styles_in_el[i].parentNode.removeChild(styles_in_el[i]))
-        }
-
-        // Vue is also not working with standard <slot> tags when a new Vue instance is created.
-        // We can replace it with a <div> placeholder and recover the original slots after the
-        // instance is created.
-        let slots = [];
-        let slots_in_el = el.getElementsByTagName("slot");
-        for (var i = 0; i < slots_in_el.length; i++) {
-            let elem = slots_in_el[i];
-            let id   = "placeholder#" + i;
-            let placeholder = document.createElement("div");
-            placeholder.id = id;
-            elem.replaceWith(placeholder);
-            slots.push({elem,id})
-        }
-
-        Vue.config.silent = true;
-
-        // Watch changes.
-        let watch = {};
-        let data = this.data;
-        this.vue = new Vue({el,data,watch});
-        this.vue.web_component = this;
-
-        // We then put the style elements back.
-        for (var i = 0; i < styles.length; i++) {
-            this.vue.$el.prepend(styles[i]);
-        }
-
-        // We can now get the slots back.
-        for (var i = 0; i < slots.length; i++) {
-            let slot = slots[i];
-            this.shadowRoot.getElementById(slot.id).replaceWith(slot.elem)
-        }
+        this.#createTextBindings(this.shadowRoot);
     }
 
     // Template creation.
@@ -120,9 +90,6 @@ export default class WebComponent extends HTMLElement {
 
     #createNodeFromTemplate(template) {
         let node = document.importNode(template.content, true);
-        let div  = document.createElement("div");
-        div.setAttribute("id", "vue");
-        div.appendChild(node);
-        return div;
+        return node;
     }
 }
